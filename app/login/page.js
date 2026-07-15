@@ -1,15 +1,19 @@
 'use client'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 
 export default function LoginPage() {
+  const router = useRouter()
   const [email, setEmail] = useState('')
-  const [sent, setSent] = useState(false)
+  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [resetSent, setResetSent] = useState(false)
+  const [resetting, setResetting] = useState(false)
 
-  async function handleMagicLink() {
-    if (!email) return
+  async function handlePasswordLogin() {
+    if (!email || !password) return
 
     if (!isSupabaseConfigured || !supabase) {
       setError('Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local and restart the app.')
@@ -20,20 +24,46 @@ export default function LoginPage() {
     setError('')
 
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: { emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback` },
-      })
-
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) {
         setError(error.message)
       } else {
-        setSent(true)
+        router.push('/')
       }
     } catch (err) {
-      setError('Unable to send login link. Check your network connection and Supabase settings.')
+      setError('Unable to sign in. Check your network connection and Supabase settings.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleForgotPassword() {
+    if (!email) {
+      setError('Enter your email above first, then click "Forgot password?".')
+      return
+    }
+
+    if (!isSupabaseConfigured || !supabase) {
+      setError('Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local and restart the app.')
+      return
+    }
+
+    setResetting(true)
+    setError('')
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/reset-password`,
+      })
+      if (error) {
+        setError(error.message)
+      } else {
+        setResetSent(true)
+      }
+    } catch (err) {
+      setError('Unable to send reset link. Check your network connection and Supabase settings.')
+    } finally {
+      setResetting(false)
     }
   }
 
@@ -53,25 +83,6 @@ export default function LoginPage() {
     }
   }
 
-  if (sent) {
-    return (
-      <div style={styles.page}>
-        <div style={styles.box}>
-          <div style={styles.logo}>VAULTWAVE</div>
-          <div style={styles.sentIcon}>✉</div>
-          <p style={styles.sentTitle}>Check your inbox</p>
-          <p style={styles.sentSub}>
-            A login link was sent to <strong style={{ color: 'var(--text)' }}>{email}</strong>.
-            Click it to sign in — no password needed.
-          </p>
-          <button style={{ ...styles.ghost, marginTop: 8 }} onClick={() => setSent(false)}>
-            Use a different email
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div style={styles.page}>
       <div style={styles.box}>
@@ -84,16 +95,27 @@ export default function LoginPage() {
             placeholder="your@email.com"
             value={email}
             onChange={e => setEmail(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleMagicLink()}
+            onKeyDown={e => e.key === 'Enter' && handlePasswordLogin()}
             autoFocus
           />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handlePasswordLogin()}
+          />
           {error && <p style={styles.error}>{error}</p>}
+          {resetSent && <p style={styles.hint}>Reset link sent to {email} — check your inbox.</p>}
           <button
-            style={loading || !email ? { ...styles.primary, opacity: 0.5 } : styles.primary}
-            onClick={handleMagicLink}
-            disabled={loading || !email}
+            style={loading || !email || !password ? { ...styles.primary, opacity: 0.5 } : styles.primary}
+            onClick={handlePasswordLogin}
+            disabled={loading || !email || !password}
           >
-            {loading ? 'Sending link...' : 'Send login link →'}
+            {loading ? 'Signing in...' : 'Sign in →'}
+          </button>
+          <button style={styles.forgotLink} onClick={handleForgotPassword} disabled={resetting}>
+            {resetting ? 'Sending...' : 'Forgot password?'}
           </button>
         </div>
 
@@ -211,21 +233,23 @@ const styles = {
     borderRadius: 'var(--radius)',
     border: '1px solid rgba(224,85,85,0.2)',
   },
-  sentIcon: {
-    fontSize: 32,
-    marginTop: 32,
-    marginBottom: 12,
+  hint: {
+    fontSize: 12,
+    color: 'var(--green)',
+    padding: '8px 12px',
+    background: 'rgba(94,175,122,0.1)',
+    borderRadius: 'var(--radius)',
+    border: '1px solid rgba(94,175,122,0.2)',
   },
-  sentTitle: {
-    fontSize: 16,
-    fontWeight: 600,
-    color: 'var(--text)',
-    marginBottom: 8,
-  },
-  sentSub: {
-    fontSize: 13,
-    color: 'var(--text2)',
-    lineHeight: 1.6,
+  forgotLink: {
+    background: 'none',
+    border: 'none',
+    color: 'var(--text3)',
+    fontSize: 12,
+    cursor: 'pointer',
+    padding: '2px 0',
+    fontFamily: 'var(--font)',
+    textAlign: 'center',
   },
   footer: {
     fontSize: 11,

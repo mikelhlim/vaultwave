@@ -3,7 +3,7 @@ import { TYPE_COLORS, CONDITION_LABELS } from '@/lib/constants'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
-export default function DetailPanel({ item, onClose, onDelete }) {
+export default function DetailPanel({ item, onClose, onDelete, isAdmin }) {
   const router = useRouter()
   if (!item) return null
 
@@ -72,20 +72,22 @@ export default function DetailPanel({ item, onClose, onDelete }) {
           </div>
         </div>
 
-        <div style={s.actions}>
-          <button style={s.actionBtn} onClick={() => router.push(`/edit/${item.id}`)}>
-            Edit
-          </button>
-          <button
-            style={{ ...s.actionBtn, color: item.wishlist ? 'var(--gold)' : undefined }}
-            onClick={toggleWishlist}
-          >
-            {item.wishlist ? '♥ Wishlisted' : '♡ Wishlist'}
-          </button>
-          <button style={{ ...s.actionBtn, color: 'var(--red)' }} onClick={handleDelete}>
-            Delete
-          </button>
-        </div>
+        {isAdmin && (
+          <div style={s.actions}>
+            <button style={s.actionBtn} onClick={() => router.push(`/edit/${item.id}`)}>
+              Edit
+            </button>
+            <button
+              style={{ ...s.actionBtn, color: item.wishlist ? 'var(--gold)' : undefined }}
+              onClick={toggleWishlist}
+            >
+              {item.wishlist ? '♥ Wishlisted' : '♡ Wishlist'}
+            </button>
+            <button style={{ ...s.actionBtn, color: 'var(--red)' }} onClick={handleDelete}>
+              Delete
+            </button>
+          </div>
+        )}
       </div>
     </>
   )

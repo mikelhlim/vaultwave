@@ -11,7 +11,8 @@ A minimalist media collection app for serious collectors of vinyl, CDs, comics, 
 - **Claude API** — photo detection via Claude Vision
 - **Discogs API** — vinyl/CD metadata enrichment
 - **ComicVine API** — comics metadata enrichment
-- **MangaDex API** — manga metadata enrichment (free, no key needed)
+- **Google Books API** — manga cover art (primary — real published English editions)
+- **MangaDex API** — manga metadata + cover fallback (free, no key needed)
 
 ---
 
@@ -78,6 +79,9 @@ For Google OAuth (optional):
 
 **MangaDex** — no key needed, it's a free public API.
 
+**Google Books** (optional, recommended) — used first for manga covers since it indexes real published English volumes, more accurately than MangaDex. Works without a key, but the anonymous quota is shared globally and runs out fast:
+- Go to https://console.cloud.google.com → New Project → APIs & Services → Library → enable **Books API** → Credentials → Create API Key (no billing account required)
+
 ---
 
 ### 6. Configure environment variables
@@ -99,13 +103,33 @@ ANTHROPIC_API_KEY=your-anthropic-key
 
 DISCOGS_TOKEN=your-discogs-token
 COMICVINE_API_KEY=your-comicvine-key
+GOOGLE_BOOKS_API_KEY=your-google-books-key
 
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
 ---
 
-### 7. Run the app
+### 7. Set up admin & roles
+
+VaultWave has one shared catalog with two roles:
+
+- **admin** — can add/edit/delete items, and manage user accounts from `/admin`
+- **viewer** — can browse and search the catalog, read-only
+
+Run the migration once in **Supabase → SQL Editor**, pasting the contents of `supabase-migration-admin.sql` (this must run *after* `supabase-schema.sql`). It adds `profiles.role` and switches the item policies from per-user ownership to a shared, admin-writable catalog.
+
+Then create the first admin account:
+
+```bash
+node scripts/create-admin.js you@example.com
+```
+
+This prints a generated password (or pass one explicitly as a second argument). Sign in at `/login` with that email/password. From `/admin` you can create additional view-only accounts — new accounts get the default password `123456`.
+
+---
+
+### 8. Run the app
 
 ```bash
 npm run dev
@@ -140,6 +164,9 @@ Open http://localhost:3000 in your browser.
 | Public read-only profile URL | ✅ |
 | Full-text search index (GIN) | ✅ |
 | Auto-create profile on signup | ✅ |
+| Admin/viewer roles, shared catalog | ✅ |
+| Admin page — create view-only users | ✅ |
+| Bulk delete (single item, multi-select, delete-all by category) | ✅ |
 
 ---
 

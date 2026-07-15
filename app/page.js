@@ -11,6 +11,7 @@ import { setOverlayOpacity } from '@/lib/overlay'
 export default function Home() {
   const router = useRouter()
   const [user, setUser] = useState(null)
+  const [role, setRole] = useState('viewer')
   const [loading, setLoading] = useState(true)
   const [items, setItems] = useState([])
   const [filter, setFilter] = useState('all')
@@ -20,11 +21,17 @@ export default function Home() {
   const [sort, setSort] = useState('recent')
   const [showFilters, setShowFilters] = useState(false)
   const [selectedItem, setSelectedItem] = useState(null)
+  const [selectedIds, setSelectedIds] = useState(new Set())
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+
+  const isAdmin = role === 'admin'
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(async ({ data }) => {
       if (!data.user) { router.push('/login'); return }
       setUser(data.user)
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', data.user.id).single()
+      setRole(profile?.role || 'viewer')
       fetchItems()
     })
   }, [])
@@ -85,6 +92,33 @@ export default function Home() {
     setItems(prev => prev.filter(i => i.id !== id))
   }
 
+  async function deleteSingleItem(item) {
+    if (!confirm(`Delete "${item.title}"? This cannot be undone.`)) return
+    const { error } = await supabase.from('items').delete().eq('id', item.id)
+    if (!error) handleDeleteItem(item.id)
+  }
+
+  function toggleSelectItem(id) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  async function deleteSelectedItems() {
+    if (selectedIds.size === 0) return
+    if (!confirm(`Delete ${selectedIds.size} item${selectedIds.size !== 1 ? 's' : ''}? This cannot be undone.`)) return
+    setBulkDeleting(true)
+    const ids = Array.from(selectedIds)
+    const { error } = await supabase.from('items').delete().in('id', ids)
+    if (!error) {
+      setItems(prev => prev.filter(i => !selectedIds.has(i.id)))
+      setSelectedIds(new Set())
+    }
+    setBulkDeleting(false)
+  }
+
   if (loading) {
     return (
       <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center' }}>
@@ -97,7 +131,7 @@ export default function Home() {
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
-      <Sidebar user={user} counts={counts} activeFilter={filter} onFilter={setFilter} />
+      <Sidebar user={user} counts={counts} activeFilter={filter} onFilter={setFilter} role={role} />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* Topbar */}
@@ -162,6 +196,17 @@ export default function Home() {
           </div>
         )}
 
+        {/* Bulk select toolbar */}
+        {isAdmin && selectedIds.size > 0 && (
+          <div style={s.selectBar}>
+            <span style={s.selectBarLabel}>{selectedIds.size} selected</span>
+            <button style={s.selectBarClear} onClick={() => setSelectedIds(new Set())}>Clear</button>
+            <button style={s.selectBarDelete} onClick={deleteSelectedItems} disabled={bulkDeleting}>
+              {bulkDeleting ? 'Deleting...' : `Delete ${selectedIds.size} item${selectedIds.size !== 1 ? 's' : ''}`}
+            </button>
+          </div>
+        )}
+
         {/* Stats bar */}
         <div style={s.statsBar}>
           {[
@@ -212,7 +257,14 @@ export default function Home() {
                 >
                   {groupItems.map(item => (
                     <div key={item.id} data-shelf-item style={{ position: 'relative' }}>
-                      <ShelfItem item={item} onClick={setSelectedItem} />
+                      <ShelfItem
+                        item={item}
+                        onClick={setSelectedItem}
+                        isAdmin={isAdmin}
+                        selected={selectedIds.has(item.id)}
+                        onToggleSelect={toggleSelectItem}
+                        onDelete={deleteSingleItem}
+                      />
                     </div>
                   ))}
                 </div>
@@ -229,7 +281,15 @@ export default function Home() {
                 <span />
               </div>
               {filtered.map(item => (
-                <ListItem key={item.id} item={item} onClick={setSelectedItem} />
+                <ListItem
+                  key={item.id}
+                  item={item}
+                  onClick={setSelectedItem}
+                  isAdmin={isAdmin}
+                  selected={selectedIds.has(item.id)}
+                  onToggleSelect={toggleSelectItem}
+                  onDelete={deleteSingleItem}
+                />
               ))}
             </div>
           )}
@@ -241,6 +301,7 @@ export default function Home() {
           item={selectedItem}
           onClose={() => setSelectedItem(null)}
           onDelete={id => { handleDeleteItem(id); setSelectedItem(null) }}
+          isAdmin={isAdmin}
         />
       )}
     </div>
@@ -332,6 +393,42 @@ const s = {
     borderColor: 'var(--gold-border)',
     color: 'var(--gold)',
     background: 'var(--gold-dim)',
+  },
+  selectBar: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    padding: '8px 20px',
+    borderBottom: '1px solid var(--border)',
+    background: 'var(--gold-dim)',
+  },
+  selectBarLabel: {
+    fontFamily: 'var(--mono)',
+    fontSize: 11,
+    color: 'var(--gold)',
+    letterSpacing: '0.06em',
+  },
+  selectBarClear: {
+    padding: '4px 10px',
+    borderRadius: 4,
+    border: '1px solid var(--border)',
+    background: 'transparent',
+    color: 'var(--text3)',
+    fontSize: 11,
+    cursor: 'pointer',
+    fontFamily: 'var(--font)',
+  },
+  selectBarDelete: {
+    marginLeft: 'auto',
+    padding: '6px 14px',
+    borderRadius: 'var(--radius)',
+    border: '1px solid rgba(224,85,85,0.3)',
+    background: 'rgba(224,85,85,0.1)',
+    color: 'var(--red)',
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: 'pointer',
+    fontFamily: 'var(--font)',
   },
   statsBar: {
     display: 'flex',

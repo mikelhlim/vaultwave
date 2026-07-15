@@ -11,8 +11,9 @@ const NAV_ITEMS = [
   { label: 'Manga',       filter: 'manga', icon: '◈' },
 ]
 
-export default function Sidebar({ user, counts = {}, activeFilter, onFilter }) {
+export default function Sidebar({ user, counts = {}, activeFilter, onFilter, role }) {
   const router = useRouter()
+  const isAdmin = role === 'admin'
 
   async function logout() {
     await supabase.auth.signOut()
@@ -69,9 +70,11 @@ export default function Sidebar({ user, counts = {}, activeFilter, onFilter }) {
       </nav>
 
       <div style={s.bottom}>
-        <a href="/add" style={s.addBtn}>+ Add Item</a>
+        {isAdmin && <a href="/add" style={s.addBtn}>+ Add Item</a>}
+        {isAdmin && <a href="/admin" style={s.adminBtn}>⚙ Admin</a>}
         <div style={s.userRow}>
           <span style={s.userEmail}>{user?.email}</span>
+          <a href="/reset-password" style={s.changePwBtn}>password</a>
           <button style={s.logoutBtn} onClick={logout}>out</button>
         </div>
       </div>
@@ -170,6 +173,17 @@ const s = {
     fontSize: 13,
     letterSpacing: '0.02em',
   },
+  adminBtn: {
+    display: 'block',
+    textAlign: 'center',
+    padding: '8px 12px',
+    background: 'transparent',
+    border: '1px solid var(--border2)',
+    color: 'var(--text2)',
+    borderRadius: 'var(--radius)',
+    fontSize: 12,
+    letterSpacing: '0.02em',
+  },
   userRow: {
     display: 'flex',
     alignItems: 'center',
@@ -183,6 +197,18 @@ const s = {
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
     flex: 1,
+  },
+  changePwBtn: {
+    fontFamily: 'var(--mono)',
+    fontSize: 10,
+    color: 'var(--text3)',
+    background: 'transparent',
+    border: '1px solid var(--border)',
+    borderRadius: 3,
+    padding: '2px 6px',
+    cursor: 'pointer',
+    letterSpacing: '0.08em',
+    flexShrink: 0,
   },
   logoutBtn: {
     fontFamily: 'var(--mono)',

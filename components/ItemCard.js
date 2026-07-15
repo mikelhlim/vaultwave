@@ -1,7 +1,7 @@
 'use client'
 import { TYPE_COLORS, CONDITIONS } from '@/lib/constants'
 
-export function ShelfItem({ item, onClick }) {
+export function ShelfItem({ item, onClick, isAdmin, selected, onToggleSelect, onDelete }) {
   const color = TYPE_COLORS[item.type] || 'var(--text3)'
 
   return (
@@ -24,7 +24,25 @@ export function ShelfItem({ item, onClick }) {
       <span style={{ ...s.typeBadge, color, background: color + '22' }}>
         {item.type?.toUpperCase()}
       </span>
-      <div style={s.overlay}>
+      {isAdmin && (
+        <button
+          style={{ ...s.selectBox, ...(selected ? s.selectBoxActive : {}) }}
+          onClick={e => { e.stopPropagation(); onToggleSelect(item.id) }}
+          aria-label={selected ? 'Deselect item' : 'Select item'}
+        >
+          {selected && '✓'}
+        </button>
+      )}
+      {isAdmin && (
+        <button
+          style={s.deleteBtn}
+          onClick={e => { e.stopPropagation(); onDelete(item) }}
+          aria-label="Delete item"
+        >
+          ✕
+        </button>
+      )}
+      <div style={s.overlay} data-overlay>
         <div style={s.overlayTitle}>{item.title}</div>
         {(item.artist || item.author) && (
           <div style={s.overlaySub}>{item.artist || item.author}</div>
@@ -34,12 +52,21 @@ export function ShelfItem({ item, onClick }) {
   )
 }
 
-export function ListItem({ item, onClick }) {
+export function ListItem({ item, onClick, isAdmin, selected, onToggleSelect, onDelete }) {
   const color = TYPE_COLORS[item.type] || 'var(--text3)'
   const condClass = item.condition?.replace('+', 'P')
 
   return (
     <div style={s.listItem} onClick={() => onClick(item)}>
+      {isAdmin && (
+        <button
+          style={{ ...s.selectBoxList, ...(selected ? s.selectBoxActive : {}) }}
+          onClick={e => { e.stopPropagation(); onToggleSelect(item.id) }}
+          aria-label={selected ? 'Deselect item' : 'Select item'}
+        >
+          {selected && '✓'}
+        </button>
+      )}
       <div style={s.listThumb}>
         {item.cover_url ? (
           <img src={item.cover_url} alt={item.title} style={s.listThumbImg} loading="lazy" />
@@ -68,6 +95,15 @@ export function ListItem({ item, onClick }) {
           {item.condition}
         </span>
       )}
+      {isAdmin && (
+        <button
+          style={s.deleteBtnList}
+          onClick={e => { e.stopPropagation(); onDelete(item) }}
+          aria-label="Delete item"
+        >
+          ✕
+        </button>
+      )}
       <span style={s.chevron}>›</span>
     </div>
   )
@@ -82,6 +118,83 @@ const s = {
     background: 'var(--bg3)',
     cursor: 'pointer',
     transition: 'transform 0.2s',
+  },
+  selectBox: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderStyle: 'solid',
+    borderColor: 'rgba(255,255,255,0.5)',
+    background: 'rgba(0,0,0,0.4)',
+    color: '#fff',
+    fontSize: 12,
+    lineHeight: 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    zIndex: 2,
+  },
+  selectBoxList: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderStyle: 'solid',
+    borderColor: 'var(--border2)',
+    background: 'transparent',
+    color: '#fff',
+    fontSize: 12,
+    lineHeight: 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    flexShrink: 0,
+  },
+  selectBoxActive: {
+    background: 'var(--gold)',
+    borderWidth: 1.5,
+    borderStyle: 'solid',
+    borderColor: 'var(--gold)',
+    color: '#1a1000',
+  },
+  deleteBtn: {
+    position: 'absolute',
+    bottom: 6,
+    right: 6,
+    width: 22,
+    height: 22,
+    borderRadius: 5,
+    border: '1px solid rgba(224,85,85,0.4)',
+    background: 'rgba(0,0,0,0.55)',
+    color: 'var(--red)',
+    fontSize: 11,
+    lineHeight: 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    zIndex: 2,
+  },
+  deleteBtnList: {
+    width: 24,
+    height: 24,
+    borderRadius: 5,
+    border: '1px solid rgba(224,85,85,0.3)',
+    background: 'rgba(224,85,85,0.08)',
+    color: 'var(--red)',
+    fontSize: 11,
+    lineHeight: 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    flexShrink: 0,
   },
   cover: {
     width: '100%',

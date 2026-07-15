@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireAdmin } from '@/lib/adminAuth'
 
 function getSupabase() {
   return createClient(
@@ -32,9 +33,13 @@ export async function GET(request) {
   return NextResponse.json(data)
 }
 
-// POST /api/items — create item
+// POST /api/items — create item (admin only — this uses the service-role
+// key, which bypasses RLS, so it must enforce the admin check itself)
 export async function POST(request) {
   try {
+    const ctx = await requireAdmin(request)
+    if (!ctx) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
     const body = await request.json()
     const supabase = getSupabase()
     const { data, error } = await supabase.from('items').insert(body).select().single()

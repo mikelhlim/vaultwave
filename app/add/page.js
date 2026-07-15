@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { TYPE_FIELDS, FIELD_LABELS, CONDITIONS, TYPE_COLORS } from '@/lib/constants'
@@ -154,6 +154,15 @@ export default function AddItemPage() {
   const [saving, setSaving]             = useState(false)
   const [saveProgress, setSaveProgress] = useState({ done: 0, total: 0 })
 
+  // ── Access guard — only admins can add items ─────────────────────────────────
+  useEffect(() => {
+    supabase.auth.getUser().then(async ({ data }) => {
+      if (!data.user) { router.push('/login'); return }
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', data.user.id).single()
+      if (profile?.role !== 'admin') router.push('/')
+    })
+  }, [])
+
   // ── File handling ────────────────────────────────────────────────────────────
   function processFile(file) {
     if (!file || !file.type.startsWith('image/')) return
@@ -266,7 +275,7 @@ export default function AddItemPage() {
           const res = await fetch('/api/enrich', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: item.type, title: item.title, artist: item.artist, author: item.author }),
+            body: JSON.stringify({ type: item.type, title: item.title, artist: item.artist, author: item.author, volume: item.volume_number }),
           })
           enriched = await res.json()
         } catch {}
@@ -275,7 +284,7 @@ export default function AddItemPage() {
       await supabase.from('items').insert({
         user_id:       user.id,
         type:          item.type,
-        cover_url:     cover_url || enriched.cover_url || null,
+        cover_url:     enriched.cover_url || cover_url || null,
         title:         item.title || enriched.title || '',
         artist:        item.artist || enriched.artist || null,
         album:         item.album  || enriched.album  || null,
@@ -306,7 +315,7 @@ export default function AddItemPage() {
       const res = await fetch('/api/enrich', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: manualType, title: manualForm.title, artist: manualForm.artist, author: manualForm.author }),
+        body: JSON.stringify({ type: manualType, title: manualForm.title, artist: manualForm.artist, author: manualForm.author, volume: manualForm.volume_number }),
       })
       enriched = await res.json()
     } catch {}
