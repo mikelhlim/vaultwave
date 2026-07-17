@@ -39,7 +39,7 @@ export default function PublicProfileClient({ profile, items, slug }) {
       <header style={s.header}>
         <div style={s.headerInner}>
           <div>
-            <div style={s.logo}>VAULTWAVE</div>
+            <div style={s.logo}><span style={s.logoDot} />VAULTWAVE</div>
             <h1 style={s.profileName}>{profile.display_name || slug}&apos;s Collection</h1>
             <p style={s.profileMeta}>{items.length} items · Public collection</p>
           </div>
@@ -67,9 +67,9 @@ export default function PublicProfileClient({ profile, items, slug }) {
                   style={{
                     ...s.typeChip,
                     ...(filter === t ? {
-                      borderColor: t === 'all' ? 'var(--gold-border)' : TYPE_COLORS[t] + '55',
-                      color: t === 'all' ? 'var(--gold)' : TYPE_COLORS[t],
-                      background: t === 'all' ? 'var(--gold-dim)' : TYPE_COLORS[t] + '18',
+                      borderColor: t === 'all' ? 'var(--highlight-border)' : TYPE_COLORS[t] + '55',
+                      color: t === 'all' ? 'var(--text)' : TYPE_COLORS[t],
+                      background: t === 'all' ? 'var(--highlight)' : TYPE_COLORS[t] + '18',
                     } : {}),
                   }}
                   onClick={() => setFilter(t)}
@@ -152,18 +152,28 @@ const s = {
     gap: 16,
   },
   logo: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 7,
     fontFamily: 'var(--mono)',
     fontSize: 10,
-    color: 'var(--gold)',
+    color: 'var(--text)',
     letterSpacing: '0.14em',
     marginBottom: 8,
   },
-  profileName: { fontSize: 22, fontWeight: 700, color: 'var(--text)' },
+  logoDot: {
+    width: 5,
+    height: 5,
+    borderRadius: '50%',
+    background: 'var(--accent)',
+    flexShrink: 0,
+  },
+  profileName: { fontSize: 22, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.3px' },
   profileMeta: { fontSize: 12, color: 'var(--text3)', marginTop: 4 },
   ctaBtn: {
     padding: '9px 18px',
-    background: 'var(--gold)',
-    color: '#1a1000',
+    background: 'var(--accent)',
+    color: 'var(--on-brand)',
     borderRadius: 'var(--radius)',
     fontWeight: 700,
     fontSize: 13,
@@ -193,7 +203,9 @@ const s = {
   typeChip: {
     padding: '5px 12px',
     borderRadius: 20,
-    border: '1px solid var(--border)',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--border)',
     background: 'transparent',
     color: 'var(--text3)',
     fontSize: 12,
@@ -258,5 +270,5 @@ const s = {
     marginTop: 40,
   },
   footerText: { fontSize: 12, color: 'var(--text3)' },
-  footerLink: { fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--gold)', letterSpacing: '0.1em' },
+  footerLink: { fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text2)', letterSpacing: '0.1em' },
 }

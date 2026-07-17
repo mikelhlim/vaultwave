@@ -47,6 +47,9 @@ export function ShelfItem({ item, onClick, isAdmin, selected, onToggleSelect, on
         {(item.artist || item.author) && (
           <div style={s.overlaySub}>{item.artist || item.author}</div>
         )}
+        {item.volume_number != null && item.volume_number !== '' && (
+          <div style={s.overlaySub}>Vol. {item.volume_number}</div>
+        )}
       </div>
     </div>
   )
@@ -86,6 +89,9 @@ export function ListItem({ item, onClick, isAdmin, selected, onToggleSelect, onD
           </span>
           {(item.artist || item.author) && (
             <span style={s.listCreator}>{item.artist || item.author}</span>
+          )}
+          {item.volume_number != null && item.volume_number !== '' && (
+            <span style={s.listVolume}>Vol. {item.volume_number}</span>
           )}
           {item.year && <span style={s.listYear}>{item.year}</span>}
         </div>
@@ -157,11 +163,11 @@ const s = {
     flexShrink: 0,
   },
   selectBoxActive: {
-    background: 'var(--gold)',
+    background: 'var(--text)',
     borderWidth: 1.5,
     borderStyle: 'solid',
-    borderColor: 'var(--gold)',
-    color: '#1a1000',
+    borderColor: 'var(--text)',
+    color: 'var(--bg)',
   },
   deleteBtn: {
     position: 'absolute',
@@ -316,6 +322,11 @@ const s = {
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
     maxWidth: 180,
+  },
+  listVolume: {
+    fontFamily: 'var(--mono)',
+    fontSize: 11,
+    color: 'var(--text3)',
   },
   listYear: {
     fontFamily: 'var(--mono)',

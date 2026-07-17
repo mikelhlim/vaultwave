@@ -1,29 +1,41 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=Syne:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=Inter:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --bg:       #090909;
-  --bg2:      #101010;
+  --bg:       #0b0b0b;
+  --bg2:      #212121;
   --bg3:      #181818;
-  --bg4:      #222222;
+  --bg4:      #353535;
   --border:   rgba(255,255,255,0.07);
   --border2:  rgba(255,255,255,0.13);
-  --text:     #f0ede8;
-  --text2:    #888880;
-  --text3:    #444440;
-  --gold:     #C8A84B;
-  --gold2:    #d4b86a;
-  --gold-dim: rgba(200,168,75,0.1);
-  --gold-border: rgba(200,168,75,0.25);
+  --text:     #ffffff;
+  --text2:    #b9b9b9;
+  --text3:    #797979;
+
+  /* Reserved accent — primary CTAs + the logo dot only. Scarcity is the
+     point: everything that used to lean on this color (nav highlights,
+     stat numbers, active chips, focus rings, the wishlist heart) uses
+     --highlight* (neutral) instead. */
+  --accent:        #f36458;
+  --accent2:       #f5806f;
+  --accent-dim:    rgba(243,100,88,0.1);
+  --accent-border: rgba(243,100,88,0.25);
+  --on-brand:      #0b0b0b;
+
+  /* Neutral "active/selected" treatment — replaces the old gold-tinted
+     highlight everywhere except the reserved accent spots above. */
+  --highlight:        rgba(255,255,255,0.08);
+  --highlight-border: rgba(255,255,255,0.2);
+
   --blue:     #5b8ed4;
   --green:    #5eaf7a;
   --red:      #e05555;
   --radius:   6px;
-  --radius-lg: 10px;
-  --font:     'Syne', sans-serif;
+  --radius-lg: 12px;
+  --font:     'Inter', sans-serif;
   --mono:     'IBM Plex Mono', monospace;
 }
 
@@ -58,7 +70,7 @@ input, select, textarea {
 }
 
 input:focus, select:focus, textarea:focus {
-  border-color: var(--gold-border);
+  border-color: var(--highlight-border);
 }
 
 select option {
@@ -89,11 +101,11 @@ button {
 .btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
 
 .btn-primary {
-  background: var(--gold);
-  color: #1a1000;
+  background: var(--accent);
+  color: var(--on-brand);
   border-color: transparent;
 }
-.btn-primary:hover { background: var(--gold2); color: #1a1000; border-color: transparent; }
+.btn-primary:hover { background: var(--accent2); color: var(--on-brand); border-color: transparent; }
 
 .btn-ghost {
   background: transparent;
@@ -112,7 +124,7 @@ button {
   border-radius: 3px;
 }
 
-.badge-vinyl { background: rgba(200,168,75,0.15); color: var(--gold); }
+.badge-vinyl { background: rgba(200,168,75,0.15); color: #C8A84B; }
 .badge-cd    { background: rgba(91,142,212,0.15); color: var(--blue); }
 .badge-comic { background: rgba(94,175,122,0.15); color: var(--green); }
 .badge-manga { background: rgba(224,85,85,0.15);  color: var(--red); }
@@ -120,7 +132,7 @@ button {
 .cond-NM  { background: rgba(94,175,122,0.15); color: var(--green); }
 .cond-VGP { background: rgba(91,142,212,0.15); color: var(--blue); }
 .cond-VG  { background: rgba(91,142,212,0.15); color: var(--blue); }
-.cond-G   { background: rgba(200,168,75,0.15); color: var(--gold); }
+.cond-G   { background: var(--highlight); color: var(--text2); }
 .cond-F   { background: rgba(224,85,85,0.15);  color: var(--red); }
 
 .form-label {

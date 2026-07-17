@@ -2,6 +2,7 @@
 import { TYPE_COLORS, CONDITION_LABELS } from '@/lib/constants'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import TrackList from './TrackList'
 
 export default function DetailPanel({ item, onClose, onDelete, isAdmin }) {
   const router = useRouter()
@@ -70,15 +71,20 @@ export default function DetailPanel({ item, onClose, onDelete, isAdmin }) {
               </div>
             ))}
           </div>
+
+          <TrackList tracks={item.tracklist} />
         </div>
 
         {isAdmin && (
           <div style={s.actions}>
-            <button style={s.actionBtn} onClick={() => router.push(`/edit/${item.id}`)}>
+            <button
+              style={s.actionBtn}
+              onClick={() => router.push(`/edit/${item.id}?from=${encodeURIComponent(window.location.pathname + window.location.search)}`)}
+            >
               Edit
             </button>
             <button
-              style={{ ...s.actionBtn, color: item.wishlist ? 'var(--gold)' : undefined }}
+              style={{ ...s.actionBtn, color: item.wishlist ? 'var(--text)' : undefined }}
               onClick={toggleWishlist}
             >
               {item.wishlist ? '♥ Wishlisted' : '♡ Wishlist'}

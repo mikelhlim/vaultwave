@@ -168,7 +168,7 @@ const s = {
     background: 'none', border: 'none', color: 'var(--text3)',
     fontSize: 13, cursor: 'pointer', padding: 0, fontFamily: 'var(--font)',
   },
-  pageTitle: { fontSize: 20, fontWeight: 700 },
+  pageTitle: { fontSize: 20, fontWeight: 700, letterSpacing: '-0.3px' },
 
   message: {
     padding: '10px 14px', borderRadius: 'var(--radius)', fontSize: 13,
@@ -190,8 +190,8 @@ const s = {
   sectionTitle: { fontSize: 15, fontWeight: 700, marginBottom: 6 },
   sectionSub: { fontSize: 12, color: 'var(--text3)', lineHeight: 1.6, marginBottom: 16 },
   code: {
-    fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--gold)',
-    background: 'var(--gold-dim)', padding: '1px 6px', borderRadius: 4,
+    fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text2)',
+    background: 'var(--highlight)', padding: '1px 6px', borderRadius: 4,
   },
 
   form: { display: 'flex', gap: 8, marginBottom: 16 },
@@ -208,7 +208,7 @@ const s = {
     fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '0.08em',
     padding: '2px 7px', borderRadius: 3, textTransform: 'uppercase',
   },
-  roleAdmin: { color: 'var(--gold)', background: 'var(--gold-dim)' },
+  roleAdmin: { color: 'var(--text2)', background: 'var(--highlight)' },
   roleViewer: { color: 'var(--text3)', background: 'var(--bg3)' },
 
   dangerRow: { display: 'flex', gap: 8, flexWrap: 'wrap' },

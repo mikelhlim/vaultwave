@@ -66,7 +66,7 @@ export default function ResetPasswordPage() {
     return (
       <div style={styles.page}>
         <div style={styles.box}>
-          <div style={styles.logo}>VAULTWAVE</div>
+          <div style={styles.logo}><span style={styles.logoDot} />VAULTWAVE</div>
           <p style={styles.sentTitle}>Password updated</p>
           <p style={styles.sentSub}>Taking you to your vault...</p>
         </div>
@@ -78,7 +78,7 @@ export default function ResetPasswordPage() {
     return (
       <div style={styles.page}>
         <div style={styles.box}>
-          <div style={styles.logo}>VAULTWAVE</div>
+          <div style={styles.logo}><span style={styles.logoDot} />VAULTWAVE</div>
           <p style={styles.sentTitle}>This link isn't working</p>
           <p style={styles.sentSub}>
             It may have expired or already been used. Request a new reset link from the login page.
@@ -95,7 +95,7 @@ export default function ResetPasswordPage() {
     return (
       <div style={styles.page}>
         <div style={styles.box}>
-          <div style={styles.logo}>VAULTWAVE</div>
+          <div style={styles.logo}><span style={styles.logoDot} />VAULTWAVE</div>
           <p style={styles.sentSub}>Verifying reset link...</p>
         </div>
       </div>
@@ -105,7 +105,7 @@ export default function ResetPasswordPage() {
   return (
     <div style={styles.page}>
       <div style={styles.box}>
-        <div style={styles.logo}>VAULTWAVE</div>
+        <div style={styles.logo}><span style={styles.logoDot} />VAULTWAVE</div>
         <p style={styles.tagline}>Set a new password</p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 28 }}>
@@ -154,11 +154,21 @@ const styles = {
     flexDirection: 'column',
   },
   logo: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
     fontFamily: 'var(--mono)',
     fontSize: 13,
     fontWeight: 500,
     letterSpacing: '0.16em',
-    color: 'var(--gold)',
+    color: 'var(--text)',
+  },
+  logoDot: {
+    width: 6,
+    height: 6,
+    borderRadius: '50%',
+    background: 'var(--accent)',
+    flexShrink: 0,
   },
   tagline: {
     fontSize: 12,
@@ -169,8 +179,8 @@ const styles = {
   primary: {
     padding: '11px 16px',
     borderRadius: 'var(--radius)',
-    background: 'var(--gold)',
-    color: '#1a1000',
+    background: 'var(--accent)',
+    color: 'var(--on-brand)',
     fontFamily: 'var(--font)',
     fontWeight: 700,
     fontSize: 13,

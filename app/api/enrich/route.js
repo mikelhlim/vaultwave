@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { titleSimilarity, bestMatch, MATCH_THRESHOLD } from '@/lib/matching'
 
 // ─── Retry ───────────────────────────────────────────────────────────────────
 // Enrichment hits three free/rate-limited third-party APIs; a transient 429
@@ -24,71 +25,66 @@ async function fetchWithRetry(url, options = {}, retries = 2) {
   }
 }
 
-// ─── Title matching ────────────────────────────────────────────────────────────
-// Strips punctuation/spacing so e.g. "Dan Da Dan" and "Dandadan" compare equal.
-function normalizeTitle(str) {
-  return (str || '')
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '')
-}
-
-// Dice's coefficient over character bigrams — cheap, dependency-free, and
-// good enough to rank near-miss titles without a fuzzy-matching library.
-function titleSimilarity(a, b) {
-  const na = normalizeTitle(a)
-  const nb = normalizeTitle(b)
-  if (!na || !nb) return 0
-  if (na === nb) return 1
-  if (na.length < 2 || nb.length < 2) return 0
-
-  const bigrams = str => {
-    const counts = new Map()
-    for (let i = 0; i < str.length - 1; i++) {
-      const bg = str.slice(i, i + 2)
-      counts.set(bg, (counts.get(bg) || 0) + 1)
-    }
-    return counts
-  }
-
-  const bigramsA = bigrams(na)
-  const bigramsB = bigrams(nb)
-  let overlap = 0
-  for (const [bg, count] of bigramsA) {
-    if (bigramsB.has(bg)) overlap += Math.min(count, bigramsB.get(bg))
-  }
-  return (2 * overlap) / (na.length - 1 + (nb.length - 1))
-}
-
-// Picks the best-matching candidate out of a set, or null if nothing is a
-// plausible match — returning nothing is better than attaching a wrong cover.
-const MATCH_THRESHOLD = 0.6
-function bestMatch(query, candidates, getTitles) {
-  const normQuery = normalizeTitle(query)
-  let best = null
-  let bestScore = 0
-
-  for (const candidate of candidates) {
-    for (const candidateTitle of getTitles(candidate)) {
-      if (!candidateTitle) continue
-      if (normalizeTitle(candidateTitle) === normQuery) return candidate
-      const score = titleSimilarity(query, candidateTitle)
-      if (score > bestScore) {
-        bestScore = score
-        best = candidate
-      }
-    }
-  }
-
-  return bestScore >= MATCH_THRESHOLD ? best : null
-}
-
 // ─── Discogs ─────────────────────────────────────────────────────────────────
-async function enrichFromDiscogs(title, artist) {
+// Discogs results are formatted "Artist - Album". Franchise-style album
+// titles (MTV Unplugged, Greatest Hits, Live, Unplugged...) are reused by
+// dozens of unrelated artists, so matching on the album title alone isn't
+// enough — the artist has to match too, or we silently attach a stranger's
+// cover art.
+function splitDiscogsTitle(r) {
+  const parts = (r.title || '').split(' - ')
+  return {
+    artist: parts[0] || '',
+    album: parts.length > 1 ? parts.slice(1).join(' - ') : (r.title || ''),
+  }
+}
+
+// Fetches a specific release for its full fields + tracklist. The search
+// endpoint doesn't carry tracklist data — only /releases/{id} does.
+async function fetchDiscogsRelease(releaseId) {
+  try {
+    const url = `https://api.discogs.com/releases/${releaseId}`
+    const res = await fetchWithRetry(url, {
+      headers: {
+        Authorization: `Discogs token=${process.env.DISCOGS_TOKEN}`,
+        'User-Agent': 'VaultWave/1.0',
+      },
+    })
+    if (!res.ok) return {}
+    const release = await res.json()
+
+    const cover_url = release.images?.find(img => img.type === 'primary')?.uri
+      || release.images?.[0]?.uri
+      || null
+
+    const tracklist = (release.tracklist || [])
+      .filter(t => t.type_ === 'track')
+      .map(t => ({ position: t.position || '', title: t.title || '', duration: t.duration || '' }))
+
+    return {
+      title:     release.title || '',
+      artist:    release.artists?.[0]?.name || '',
+      year:      release.year?.toString() || '',
+      genre:     release.genres?.[0] || release.styles?.[0] || '',
+      cover_url,
+      label:     release.labels?.[0]?.name || '',
+      catalog:   release.labels?.[0]?.catno || '',
+      tracklist,
+    }
+  } catch {
+    return {}
+  }
+}
+
+// discogsReleaseId shortcuts straight to a specific release — used when the
+// caller already has a release picked (e.g. re-fetching after the user
+// chooses a cover candidate) instead of re-running the search.
+async function enrichFromDiscogs(title, artist, discogsReleaseId) {
+  if (discogsReleaseId) return await fetchDiscogsRelease(discogsReleaseId)
+
   try {
     const query = [title, artist].filter(Boolean).join(' ')
-    const url = `https://api.discogs.com/database/search?q=${encodeURIComponent(query)}&type=release&per_page=5`
+    const url = `https://api.discogs.com/database/search?q=${encodeURIComponent(query)}&type=release&per_page=10`
     const res = await fetchWithRetry(url, {
       headers: {
         Authorization: `Discogs token=${process.env.DISCOGS_TOKEN}`,
@@ -100,17 +96,46 @@ async function enrichFromDiscogs(title, artist) {
     const results = data.results || []
     if (!results.length) return {}
 
-    const result = bestMatch(title, results, r => [r.title?.split(' - ')[1], r.title]) || results[0]
+    const pool = artist
+      ? results.filter(r => titleSimilarity(artist, splitDiscogsTitle(r).artist) >= MATCH_THRESHOLD)
+      : results
 
-    return {
-      title:     result.title?.split(' - ')[1] || result.title || title,
-      artist:    result.title?.split(' - ')[0] || artist,
-      year:      result.year?.toString() || '',
-      genre:     result.genre?.[0] || result.style?.[0] || '',
-      cover_url: result.cover_image || null,
-      label:     result.label?.[0] || '',
-      catalog:   result.catno || '',
+    // Rank every plausible match (not just the winner) so distinct pressings
+    // of the same release can be offered as cover candidates below.
+    const ranked = pool
+      .map(r => ({ r, score: titleSimilarity(title, splitDiscogsTitle(r).album) }))
+      .filter(x => x.score >= MATCH_THRESHOLD)
+      .sort((a, b) => b.score - a.score)
+    if (!ranked.length) return {}
+
+    const top = await fetchDiscogsRelease(ranked[0].r.id)
+    if (!top.cover_url && !top.title) {
+      // The release-detail call itself failed — fall back to the search
+      // result's own fields rather than returning nothing.
+      const matched = splitDiscogsTitle(ranked[0].r)
+      return {
+        title:     matched.album || title,
+        artist:    matched.artist || artist,
+        year:      ranked[0].r.year?.toString() || '',
+        genre:     ranked[0].r.genre?.[0] || ranked[0].r.style?.[0] || '',
+        cover_url: ranked[0].r.cover_image || null,
+        label:     ranked[0].r.label?.[0] || '',
+        catalog:   ranked[0].r.catno || '',
+      }
     }
+
+    const cover_candidates = ranked.length > 1
+      ? ranked.slice(0, 5).map(({ r }) => ({
+          id:        r.id,
+          cover_url: r.cover_image,
+          ...splitDiscogsTitle(r),
+          year:      r.year?.toString() || '',
+          label:     r.label?.[0] || '',
+          format:    (r.format || []).join(', '),
+        }))
+      : undefined
+
+    return { ...top, cover_candidates }
   } catch {
     return {}
   }
@@ -126,7 +151,8 @@ async function enrichFromComicVine(title) {
     const results = data.results || []
     if (!results.length) return {}
 
-    const result = bestMatch(title, results, r => [r.name, r.volume?.name]) || results[0]
+    const result = bestMatch(title, results, r => [r.name, r.volume?.name])
+    if (!result) return {}
 
     return {
       title:     result.name || title,
@@ -204,9 +230,14 @@ async function fetchVolumeCover(mangaId, volumeNumber, fallbackFileName) {
       const data = await res.json()
       const covers = data.data || []
       if (covers.length) {
-        const target = volumeNumber != null && volumeNumber !== '' ? String(volumeNumber).trim() : null
+        // Compare numerically, not by raw string — spine text like "07" must
+        // still match MangaDex's unpadded "7", or every padded volume number
+        // silently misses its exact cover and falls through to the nearest
+        // English-volume guess instead.
+        const targetNum = volumeNumber != null && volumeNumber !== '' ? parseFloat(volumeNumber) : NaN
+        const target = !Number.isNaN(targetNum) ? targetNum : null
         const isEn = c => c.attributes?.locale === 'en'
-        const atVolume = target ? covers.filter(c => c.attributes?.volume === target) : []
+        const atVolume = target != null ? covers.filter(c => parseFloat(c.attributes?.volume) === target) : []
 
         let chosen =
           atVolume.find(isEn) ||           // exact volume, English
@@ -217,13 +248,12 @@ async function fetchVolumeCover(mangaId, volumeNumber, fallbackFileName) {
           // No cover at all for this exact volume — fall back to the nearest
           // English volume rather than an exact-volume-but-wrong-language guess.
           const enCovers = covers.filter(isEn)
-          if (target && enCovers.length) {
-            const numeric = parseFloat(target)
+          if (target != null && enCovers.length) {
             const withVolume = enCovers
               .map(c => ({ c, v: parseFloat(c.attributes.volume) }))
               .filter(({ v }) => !Number.isNaN(v))
-            const below = withVolume.filter(({ v }) => v <= numeric).sort((a, b) => b.v - a.v)[0]
-            const above = withVolume.filter(({ v }) => v > numeric).sort((a, b) => a.v - b.v)[0]
+            const below = withVolume.filter(({ v }) => v <= target).sort((a, b) => b.v - a.v)[0]
+            const above = withVolume.filter(({ v }) => v > target).sort((a, b) => a.v - b.v)[0]
             chosen = (below || above)?.c || enCovers[0]
           } else {
             chosen = enCovers[0] || covers[0]
@@ -287,10 +317,47 @@ async function enrichFromMangaDex(title, volume) {
   }
 }
 
+// ─── Jikan (MyAnimeList) ───────────────────────────────────────────────────────
+// Tried first for manga per explicit request. Trade-off: MAL's cover art is
+// the series' primary key visual, not a volume-specific English print cover
+// the way Google Books' listings are — a series will show the same cover
+// across different owned volumes more often than the old Google-Books-first
+// order did. The chain still falls through to MangaDex/Google Books below
+// when Jikan has no cover (including when Jikan/MAL itself is unreachable).
+async function enrichFromJikan(title, volume) {
+  try {
+    const url = `https://api.jikan.moe/v4/manga?q=${encodeURIComponent(title)}&limit=10`
+    const res = await fetchWithRetry(url)
+    if (!res.ok) return {}
+    const data = await res.json()
+    const results = data.data || []
+    if (!results.length) return {}
+
+    const result = bestMatch(title, results, r => [
+      r.title,
+      r.title_english,
+      r.title_japanese,
+      ...(r.titles || []).map(t => t.title),
+    ])
+    if (!result) return {}
+
+    return {
+      title:     result.title_english || result.title || title,
+      author:    result.authors?.[0]?.name || '',
+      genre:     result.genres?.[0]?.name || '',
+      year:      result.published?.from ? result.published.from.slice(0, 4) : '',
+      cover_url: result.images?.jpg?.image_url || null,
+      mal_id:    result.mal_id ? String(result.mal_id) : null,
+    }
+  } catch {
+    return {}
+  }
+}
+
 // ─── Handler ─────────────────────────────────────────────────────────────────
 export async function POST(request) {
   try {
-    const { type, title, artist, author, volume } = await request.json()
+    const { type, title, artist, author, volume, discogsReleaseId } = await request.json()
 
     if (!title) {
       return NextResponse.json({})
@@ -299,12 +366,21 @@ export async function POST(request) {
     let enriched = {}
 
     if (type === 'vinyl' || type === 'cd') {
-      enriched = await enrichFromDiscogs(title, artist)
+      enriched = await enrichFromDiscogs(title, artist, discogsReleaseId)
     } else if (type === 'comic') {
       enriched = await enrichFromComicVine(title)
     } else if (type === 'manga') {
-      const google = await enrichFromGoogleBooks(title, volume)
-      enriched = google.cover_url ? google : await enrichFromMangaDex(title, volume)
+      const jikan = await enrichFromJikan(title, volume)
+      enriched = jikan.cover_url ? jikan : {}
+
+      if (!enriched.cover_url) {
+        const mdx = await enrichFromMangaDex(title, volume)
+        if (mdx.cover_url) enriched = { ...enriched, ...mdx }
+      }
+      if (!enriched.cover_url) {
+        const google = await enrichFromGoogleBooks(title, volume)
+        if (google.cover_url) enriched = { ...enriched, ...google }
+      }
     }
 
     return NextResponse.json(enriched)

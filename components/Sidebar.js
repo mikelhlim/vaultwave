@@ -1,49 +1,68 @@
 'use client'
-import { useRouter } from 'next/navigation'
+import { Suspense } from 'react'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { TYPE_COLORS } from '@/lib/constants'
+import ChatPanel from './ChatPanel'
 
 const NAV_ITEMS = [
-  { label: 'All Media',   filter: 'all',   icon: '▦' },
-  { label: 'Vinyl',       filter: 'vinyl', icon: '⦿' },
-  { label: 'CDs',         filter: 'cd',    icon: '◎' },
-  { label: 'Comics',      filter: 'comic', icon: '▣' },
-  { label: 'Manga',       filter: 'manga', icon: '◈' },
+  { label: 'All Media',   type: 'all',   icon: '▦' },
+  { label: 'Vinyl',       type: 'vinyl', icon: '⦿' },
+  { label: 'CDs',         type: 'cd',    icon: '◎' },
+  { label: 'Comics',      type: 'comic', icon: '▣' },
+  { label: 'Manga',       type: 'manga', icon: '◈' },
 ]
 
-export default function Sidebar({ user, counts = {}, activeFilter, onFilter, role }) {
+function SidebarInner({ user, counts = {}, role }) {
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const isAdmin = role === 'admin'
+
+  const onDashboard = pathname === '/'
+  const onCollection = pathname === '/collection'
+  const activeType = onCollection ? (searchParams.get('view') || searchParams.get('type') || 'all') : null
 
   async function logout() {
     await supabase.auth.signOut()
     router.push('/login')
   }
 
-  const total = Object.values(counts).reduce((a, b) => a + b, 0)
+  // Mutually-exclusive type counts only — wishlist/lent aren't exclusive
+  // with a type, so summing them in here would double-count "All Media".
+  const total = (counts.vinyl || 0) + (counts.cd || 0) + (counts.comic || 0) + (counts.manga || 0)
 
   return (
     <aside style={s.sidebar}>
-      <div style={s.logoWrap}>
-        <div style={s.logo}>VAULTWAVE</div>
+      <a href="/" style={s.logoWrap}>
+        <div style={s.logo}>
+          <span style={s.logoDot} />
+          VAULTWAVE
+        </div>
         <div style={s.logoSub}>Media Collection</div>
-      </div>
+      </a>
 
       <nav style={s.nav}>
-        <div style={s.navSection}>Library</div>
-        {NAV_ITEMS.map(({ label, filter, icon }) => {
-          const count = filter === 'all' ? total : (counts[filter] || 0)
-          const active = activeFilter === filter
+        <a href="/" style={{ ...s.navItem, ...(onDashboard ? s.navItemActive : {}) }}>
+          <span style={{ ...s.navIcon, color: onDashboard ? 'var(--text)' : 'var(--text3)' }}>⌂</span>
+          <span style={s.navLabel}>Dashboard</span>
+        </a>
+
+        <div style={{ ...s.navSection, marginTop: 10 }}>Library</div>
+        {NAV_ITEMS.map(({ label, type, icon }) => {
+          const count = type === 'all' ? total : (counts[type] || 0)
+          const active = activeType === type
+          const href = type === 'all' ? '/collection' : `/collection?type=${type}`
           return (
-            <button
-              key={filter}
+            <a
+              key={type}
+              href={href}
               style={{ ...s.navItem, ...(active ? s.navItemActive : {}) }}
-              onClick={() => onFilter(filter)}
             >
               <span style={{
                 ...s.navIcon,
                 color: active
-                  ? (filter === 'all' ? 'var(--gold)' : TYPE_COLORS[filter])
+                  ? (type === 'all' ? 'var(--text)' : TYPE_COLORS[type])
                   : 'var(--text3)',
               }}>
                 {icon}
@@ -52,21 +71,21 @@ export default function Sidebar({ user, counts = {}, activeFilter, onFilter, rol
               {count > 0 && (
                 <span style={s.navCount}>{count}</span>
               )}
-            </button>
+            </a>
           )
         })}
 
         <div style={{ ...s.navSection, marginTop: 16 }}>Collections</div>
-        <button style={s.navItem} onClick={() => onFilter('wishlist')}>
+        <a href="/collection?view=wishlist" style={{ ...s.navItem, ...(activeType === 'wishlist' ? s.navItemActive : {}) }}>
           <span style={{ ...s.navIcon, color: 'var(--text3)' }}>♡</span>
           <span style={s.navLabel}>Wishlist</span>
           {counts.wishlist > 0 && <span style={s.navCount}>{counts.wishlist}</span>}
-        </button>
-        <button style={s.navItem} onClick={() => onFilter('lent')}>
+        </a>
+        <a href="/collection?view=lent" style={{ ...s.navItem, ...(activeType === 'lent' ? s.navItemActive : {}) }}>
           <span style={{ ...s.navIcon, color: 'var(--text3)' }}>↗</span>
           <span style={s.navLabel}>Lent Out</span>
           {counts.lent > 0 && <span style={s.navCount}>{counts.lent}</span>}
-        </button>
+        </a>
       </nav>
 
       <div style={s.bottom}>
@@ -82,6 +101,17 @@ export default function Sidebar({ user, counts = {}, activeFilter, onFilter, rol
   )
 }
 
+export default function Sidebar(props) {
+  return (
+    <>
+      <Suspense fallback={<aside style={s.sidebar} />}>
+        <SidebarInner {...props} />
+      </Suspense>
+      <ChatPanel isAdmin={props.role === 'admin'} />
+    </>
+  )
+}
+
 const s = {
   sidebar: {
     width: 220,
@@ -93,15 +123,26 @@ const s = {
     height: '100vh',
   },
   logoWrap: {
+    display: 'block',
     padding: '20px 18px 16px',
     borderBottom: '1px solid var(--border)',
   },
   logo: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 7,
     fontFamily: 'var(--mono)',
     fontSize: 12,
     fontWeight: 500,
-    color: 'var(--gold)',
+    color: 'var(--text)',
     letterSpacing: '0.14em',
+  },
+  logoDot: {
+    width: 6,
+    height: 6,
+    borderRadius: '50%',
+    background: 'var(--accent)',
+    flexShrink: 0,
   },
   logoSub: {
     fontSize: 10,
@@ -131,7 +172,9 @@ const s = {
     padding: '8px 18px',
     background: 'transparent',
     border: 'none',
-    borderLeft: '2px solid transparent',
+    borderLeftWidth: 2,
+    borderLeftStyle: 'solid',
+    borderLeftColor: 'transparent',
     color: 'var(--text2)',
     fontSize: 13,
     textAlign: 'left',
@@ -139,9 +182,9 @@ const s = {
     transition: 'all 0.15s',
   },
   navItemActive: {
-    color: 'var(--gold)',
-    borderLeftColor: 'var(--gold)',
-    background: 'var(--gold-dim)',
+    color: 'var(--text)',
+    borderLeftColor: 'var(--highlight-border)',
+    background: 'var(--highlight)',
   },
   navIcon: {
     fontSize: 14,
@@ -166,8 +209,8 @@ const s = {
     display: 'block',
     textAlign: 'center',
     padding: '9px 12px',
-    background: 'var(--gold)',
-    color: '#1a1000',
+    background: 'var(--accent)',
+    color: 'var(--on-brand)',
     borderRadius: 'var(--radius)',
     fontWeight: 700,
     fontSize: 13,
